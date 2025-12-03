@@ -20,6 +20,10 @@ const TransactionSearch = ({
   const [sortKey, setSortKey] = useState("");
   const fileInput = useRef();
 
+  // Get unique tags from transactions
+  const uniqueTags = [...new Set(transactions.map(t => t.tag).filter(tag => tag))].sort();
+
+
   function importFromCsv(event) {
     event.preventDefault();
     try {
@@ -168,6 +172,21 @@ const TransactionSearch = ({
           <Option value="">All Types</Option>
           <Option value="income">Income</Option>
           <Option value="expense">Expense</Option>
+        </Select>
+
+        <Select
+          className="w-full md:w-48"
+          onChange={(value) => setSelectedTag(value)}
+          value={selectedTag}
+          placeholder="Filter by Tag"
+          allowClear
+        >
+          <Option value="">All Tags</Option>
+          {uniqueTags.map((tag) => (
+            <Option key={tag} value={tag}>
+              {tag}
+            </Option>
+          ))}
         </Select>
       </div>
 

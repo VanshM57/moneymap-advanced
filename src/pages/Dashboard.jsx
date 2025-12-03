@@ -144,29 +144,29 @@ const Dashboard = () => {
 // };
 
 
-// for line chart between weeks and balance
+// for line chart between days and balance
   const processChartData = () => {
-  const weeklyMap = {};
+  const dailyMap = {};
   const spendingData = {};
 
   transactions.forEach((transaction) => {
-    const weekStart = moment(transaction.date).startOf('week').format("YYYY-MM-DD"); // Sunday as start
-    const displayWeek = moment(weekStart).format("DD MMM YYYY");
+    const dateKey = moment(transaction.date).format("YYYY-MM-DD");
+    const displayDate = moment(dateKey).format("DD MMM");
     const tag = transaction.tag;
 
-    if (!weeklyMap[weekStart]) {
-      weeklyMap[weekStart] = {
-        weekKey: weekStart,
-        week: displayWeek,
+    if (!dailyMap[dateKey]) {
+      dailyMap[dateKey] = {
+        dateKey,
+        date: displayDate,
         income: 0,
         expense: 0,
       };
     }
 
     if (transaction.type === "income") {
-      weeklyMap[weekStart].income += transaction.amount;
+      dailyMap[dateKey].income += transaction.amount;
     } else {
-      weeklyMap[weekStart].expense += transaction.amount;
+      dailyMap[dateKey].expense += transaction.amount;
 
       if (spendingData[tag]) {
         spendingData[tag] += transaction.amount;
@@ -176,18 +176,18 @@ const Dashboard = () => {
     }
   });
 
-  // Sort weeks chronologically
-  const sortedWeeks = Object.values(weeklyMap).sort(
-    (a, b) => new Date(a.weekKey) - new Date(b.weekKey)
+  // Sort days chronologically
+  const sortedDays = Object.values(dailyMap).sort(
+    (a, b) => new Date(a.dateKey) - new Date(b.dateKey)
   );
 
   // Calculate cumulative balance
   let cumulativeBalance = 0;
-  const balanceData = sortedWeeks.map((item) => {
+  const balanceData = sortedDays.map((item) => {
     cumulativeBalance += item.income - item.expense;
     return {
-      week: item.week,
-      balance: cumulativeBalance,
+      date: item.date,
+      amount: cumulativeBalance,
     };
   });
 
@@ -670,11 +670,11 @@ const Dashboard = () => {
   //   height: 300,
   // };
 
-  // for weekly balance chart
+  // for daily balance chart
   const balanceConfig = {
   data: balanceData,
-  xField: "week", // changed from "month"
-  yField: "balance",
+  xField: "date",
+  yField: "amount",
   smooth: true,
   autoFit: true,
   height: 300,
