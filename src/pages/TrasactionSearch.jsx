@@ -11,6 +11,8 @@ const TransactionSearch = ({
   exportToCsv,
   addTransaction,
   fetchTransactions,
+  onEditTransaction,
+  onDeleteTransaction,
 }) => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedTag, setSelectedTag] = useState("");
@@ -27,7 +29,7 @@ const TransactionSearch = ({
           for (const transaction of results.data) {
             const newTransaction = {
               ...transaction,
-              amount: parseInt(transaction.amount),
+              amount: parseFloat(transaction.amount) || 0,
             };
             await addTransaction(newTransaction, true);
           }
@@ -85,6 +87,32 @@ const TransactionSearch = ({
       dataIndex: "tag", 
       key: "tag",
       render: (text) => <span className="text-secondary-600">{text}</span>
+    },
+    {
+      title: "Actions",
+      key: "actions",
+      render: (_, record) => (
+        <div className="flex gap-2">
+          <button
+            onClick={() => onEditTransaction && onEditTransaction(record)}
+            className="px-3 py-1 text-sm bg-primary-100 text-primary-700 rounded hover:bg-primary-200 transition-colors"
+            title="Edit transaction"
+          >
+            Edit
+          </button>
+          <button
+            onClick={() => {
+              if (window.confirm("Are you sure you want to delete this transaction?")) {
+                onDeleteTransaction && onDeleteTransaction(record.id);
+              }
+            }}
+            className="px-3 py-1 text-sm bg-danger-100 text-danger-700 rounded hover:bg-danger-200 transition-colors"
+            title="Delete transaction"
+          >
+            Delete
+          </button>
+        </div>
+      ),
     },
   ];
 

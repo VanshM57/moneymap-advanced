@@ -1,7 +1,7 @@
 import React, { useMemo } from "react";
 import moment from "moment";
 
-const Timeline = ({ transactions, budgets, dateRange }) => {
+const Timeline = ({ transactions, budgets, dateRange, onEditTransaction, onDeleteTransaction }) => {
   const normalizeTag = (value = "") => value.trim().toLowerCase();
 
   const getBudgetWindowStart = (budget) => {
@@ -215,9 +215,37 @@ const Timeline = ({ transactions, budgets, dateRange }) => {
                 {t.type === "income" ? "+" : "-"}₹{Number(t.amount).toFixed(2)}
               </p>
             </div>
-            <p className="text-xs text-gray-400 mt-1">
-              {moment(t.date).format("MMM DD, YYYY")}
-            </p>
+            <div className="flex items-center justify-between mt-2">
+              <p className="text-xs text-gray-400">
+                {moment(t.date).format("MMM DD, YYYY")}
+              </p>
+              {(onEditTransaction || onDeleteTransaction) && (
+                <div className="flex gap-2">
+                  {onEditTransaction && (
+                    <button
+                      onClick={() => onEditTransaction(t)}
+                      className="px-2 py-1 text-xs bg-primary-100 text-primary-700 rounded hover:bg-primary-200 transition-colors"
+                      title="Edit transaction"
+                    >
+                      Edit
+                    </button>
+                  )}
+                  {onDeleteTransaction && t.id && (
+                    <button
+                      onClick={() => {
+                        if (window.confirm("Are you sure you want to delete this transaction?")) {
+                          onDeleteTransaction(t.id);
+                        }
+                      }}
+                      className="px-2 py-1 text-xs bg-danger-100 text-danger-700 rounded hover:bg-danger-200 transition-colors"
+                      title="Delete transaction"
+                    >
+                      Delete
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         );
 

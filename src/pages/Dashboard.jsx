@@ -7,6 +7,8 @@ import Header from "../components/Header/Header";
 import AddIncomeModal from "../components/Modals/AddIncome";
 import AddExpenseModal from "../components/Modals/AddExpense";
 import AddBudgetModal from "../components/Modals/AddBudget";
+import EditTransactionModal from "../components/Modals/EditTransaction";
+import CustomizeQuickEntry from "../components/Modals/CustomizeQuickEntry";
 import Cards from "../components/Cards/Cards";
 import NoTransactions from "./NoTransactions";
 import Timeline from "../components/Timeline/Timeline";
@@ -14,7 +16,7 @@ import VoiceCommand from "../components/VoiceCommand/VoiceCommand";
 import QuickEntry from "../components/QuickEntry/QuickEntry";
 import { useAuthState } from "react-firebase-hooks/auth";
 import { auth, db } from "../firebase";
-import { addDoc, collection, deleteDoc, doc, getDocs, query } from "firebase/firestore";
+import { addDoc, collection, deleteDoc, doc, getDoc, getDocs, query, setDoc, updateDoc } from "firebase/firestore";
 import Loader from "../components/Loader/Loader";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
@@ -28,6 +30,10 @@ const Dashboard = () => {
   const [isExpenseModalVisible, setIsExpenseModalVisible] = useState(false);
   const [isIncomeModalVisible, setIsIncomeModalVisible] = useState(false);
   const [isBudgetModalVisible, setIsBudgetModalVisible] = useState(false);
+  const [isEditModalVisible, setIsEditModalVisible] = useState(false);
+  const [editingTransaction, setEditingTransaction] = useState(null);
+  const [isQuickEntryCustomizeVisible, setIsQuickEntryCustomizeVisible] = useState(false);
+  const [quickEntryTemplates, setQuickEntryTemplates] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [allTransactions, setAllTransactions] = useState([]);
   const [budgets, setBudgets] = useState([]);
@@ -203,10 +209,42 @@ const Dashboard = () => {
   const handleExpenseCancel = () => setIsExpenseModalVisible(false);
   const handleIncomeCancel = () => setIsIncomeModalVisible(false);
   const handleBudgetCancel = () => setIsBudgetModalVisible(false);
+  
+  const handleEditTransaction = (transaction) => {
+    setEditingTransaction(transaction);
+    setIsEditModalVisible(true);
+  };
+  
+  const handleEditCancel = () => {
+    setIsEditModalVisible(false);
+    setEditingTransaction(null);
+  };
+  
+  const handleEditFinish = async (values, type) => {
+    if (!editingTransaction || !editingTransaction.id) {
+      toast.error("Invalid transaction data");
+      return;
+    }
+    
+    const updatedTransaction = {
+      type,
+      date: values.date.format("YYYY-MM-DD"),
+      amount: parseFloat(values.amount),
+      tag: values.tag,
+      name: values.name,
+    };
+    
+    const success = await updateTransaction(editingTransaction.id, updatedTransaction);
+    if (success) {
+      setIsEditModalVisible(false);
+      setEditingTransaction(null);
+    }
+  };
 
   useEffect(() => {
     fetchTransactions();
     fetchBudgets();
+    fetchQuickEntryTemplates();
   }, [user]);
 
   const onFinish = (values, type) => {
@@ -359,15 +397,64 @@ const Dashboard = () => {
     }
   }
 
+  async function updateTransaction(transactionId, updatedData) {
+    if (!user) {
+      toast.error("User not authenticated");
+      return false;
+    }
+
+    try {
+      const transactionData = {
+        type: updatedData.type,
+        amount: parseFloat(updatedData.amount) || 0,
+        tag: updatedData.tag || "miscellaneous",
+        name: updatedData.name || `${updatedData.type} transaction`,
+        date: updatedData.date || moment().format("YYYY-MM-DD"),
+      };
+
+      const transactionRef = doc(db, `users/${user.uid}/transactions/${transactionId}`);
+      await updateDoc(transactionRef, transactionData);
+      toast.success("Transaction updated successfully!");
+      await fetchTransactions();
+      return true;
+    } catch (e) {
+      console.error("Error updating transaction:", e);
+      toast.error("Couldn't update transaction: " + (e.message || "Unknown error"));
+      return false;
+    }
+  }
+
+  async function deleteTransaction(transactionId) {
+    if (!user) {
+      toast.error("User not authenticated");
+      return false;
+    }
+
+    try {
+      const transactionRef = doc(db, `users/${user.uid}/transactions/${transactionId}`);
+      await deleteDoc(transactionRef);
+      toast.success("Transaction deleted successfully!");
+      await fetchTransactions();
+      return true;
+    } catch (e) {
+      console.error("Error deleting transaction:", e);
+      toast.error("Couldn't delete transaction: " + (e.message || "Unknown error"));
+      return false;
+    }
+  }
+
   async function fetchTransactions() {
     setLoading(true);
     if (user) {
       const q = query(collection(db, `users/${user.uid}/transactions`));
       const querySnapshot = await getDocs(q);
-      const transactionsArray = querySnapshot.docs.map((doc) => doc.data());
+      const transactionsArray = querySnapshot.docs.map((docSnapshot) => ({
+        id: docSnapshot.id,
+        ...docSnapshot.data(),
+      }));
       setAllTransactions(transactionsArray);
       setTransactions(transactionsArray);
-      toast.success("Transactions Fetched!");
+      // Removed toast to prevent spam - only show on initial load if needed
     }
     setLoading(false);
   }
@@ -387,15 +474,87 @@ const Dashboard = () => {
     }
   }
 
+  async function fetchQuickEntryTemplates() {
+    if (!user) return;
+    try {
+      const userRef = doc(db, "users", user.uid);
+      const userDoc = await getDoc(userRef);
+      
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        if (userData.quickEntryTemplates && userData.quickEntryTemplates.length > 0) {
+          setQuickEntryTemplates(userData.quickEntryTemplates);
+          return;
+        }
+      }
+      // If no custom templates, use empty array (QuickEntry will use defaults)
+      setQuickEntryTemplates([]);
+    } catch (error) {
+      console.error("Error fetching quick entry templates:", error);
+      setQuickEntryTemplates([]);
+    }
+  }
+
+  async function saveQuickEntryTemplates(templates) {
+    if (!user) {
+      toast.error("User not authenticated");
+      return false;
+    }
+
+    try {
+      const userRef = doc(db, "users", user.uid);
+      await updateDoc(userRef, {
+        quickEntryTemplates: templates,
+      });
+      
+      setQuickEntryTemplates(templates);
+      toast.success("Quick entry templates saved!");
+      setIsQuickEntryCustomizeVisible(false);
+      return true;
+    } catch (error) {
+      console.error("Error saving quick entry templates:", error);
+      toast.error("Couldn't save templates: " + (error.message || "Unknown error"));
+      return false;
+    }
+  }
+
   const normalizeTag = (value = "") => value.trim().toLowerCase();
 
   async function addBudget(budget) {
-    if (!user) return;
+    if (!user) {
+      toast.error("User not authenticated");
+      return false;
+    }
+    
     try {
       const displayTag = budget.tag?.trim() || "";
+      if (!displayTag) {
+        toast.error("Please enter a valid tag for the budget.");
+        return false;
+      }
+      
+      const normalizedTag = normalizeTag(budget.tag);
+      
+      // Check for duplicate budget with the same tag (case-insensitive)
+      const existingBudget = budgets.find(
+        (b) => {
+          const existingTag = normalizeTag(b.tag || b.tagLabel || "");
+          return existingTag === normalizedTag && existingTag !== "";
+        }
+      );
+      
+      if (existingBudget) {
+        const existingTagLabel = existingBudget.tagLabel || existingBudget.tag || normalizedTag;
+        toast.error(
+          `A budget for "${existingTagLabel}" already exists. ` +
+          `Please edit or remove the existing budget first.`
+        );
+        return false;
+      }
+      
       const payload = {
         ...budget,
-        tag: normalizeTag(budget.tag),
+        tag: normalizedTag,
         tagLabel: displayTag,
         limit: parseFloat(budget.limit),
         createdAt: new Date(),
@@ -403,16 +562,28 @@ const Dashboard = () => {
 
       if (payload.period === "custom") {
         payload.customDays = Number(payload.customDays) || 30;
+        // Validate custom days range
+        if (payload.customDays < 3 || payload.customDays > 365) {
+          toast.error("Custom period must be between 3 and 365 days.");
+          return false;
+        }
       } else {
         delete payload.customDays;
       }
 
+      // Validate limit
+      if (!payload.limit || payload.limit <= 0) {
+        toast.error("Budget limit must be greater than 0.");
+        return false;
+      }
+
       await addDoc(collection(db, `users/${user.uid}/budgets`), payload);
-      toast.success("Budget added!");
+      toast.success("Budget added successfully!");
       fetchBudgets();
       return true;
     } catch (error) {
-      toast.error("Couldn't add budget");
+      console.error("Error adding budget:", error);
+      toast.error("Couldn't add budget: " + (error.message || "Unknown error"));
       return false;
     }
   }
@@ -585,7 +756,11 @@ const Dashboard = () => {
           {/* Voice Commands & Quick Entry */}
           <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
             <VoiceCommand onTransactionAdd={handleVoiceAdd} />
-            <QuickEntry onQuickAdd={handleQuickAdd} />
+            <QuickEntry 
+              onQuickAdd={handleQuickAdd}
+              templates={quickEntryTemplates}
+              onCustomize={() => setIsQuickEntryCustomizeVisible(true)}
+            />
           </div>
 
           <AddExpenseModal
@@ -602,6 +777,18 @@ const Dashboard = () => {
             isBudgetModalVisible={isBudgetModalVisible}
             handleBudgetCancel={handleBudgetCancel}
             onFinish={handleBudgetSubmit}
+          />
+          <EditTransactionModal
+            isEditModalVisible={isEditModalVisible}
+            handleEditCancel={handleEditCancel}
+            onFinish={handleEditFinish}
+            transaction={editingTransaction}
+          />
+          <CustomizeQuickEntry
+            isVisible={isQuickEntryCustomizeVisible}
+            onCancel={() => setIsQuickEntryCustomizeVisible(false)}
+            onSave={saveQuickEntryTemplates}
+            currentTemplates={quickEntryTemplates}
           />
 
           <div className="shadow-md rounded-lg p-4 sm:p-6 w-full bg-white mt-6">
@@ -731,6 +918,8 @@ const Dashboard = () => {
                 transactions={transactions}
                 budgets={budgets}
                 dateRange={dateRange}
+                onEditTransaction={handleEditTransaction}
+                onDeleteTransaction={deleteTransaction}
               />
             ) : (
               <TransactionSearch
@@ -738,6 +927,8 @@ const Dashboard = () => {
                 exportToCsv={exportToCsv}
                 fetchTransactions={fetchTransactions}
                 addTransaction={addTransaction}
+                onEditTransaction={handleEditTransaction}
+                onDeleteTransaction={deleteTransaction}
               />
             )}
           </div>

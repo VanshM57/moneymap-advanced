@@ -2,47 +2,50 @@ import React, { useState } from "react";
 import { toast } from "react-toastify";
 import moment from "moment";
 
-const QuickEntry = ({ onQuickAdd }) => {
+const DEFAULT_TEMPLATES = [
+  {
+    type: "expense",
+    amount: 50,
+    tag: "food",
+    name: "Quick Food",
+    icon: "🍔",
+  },
+  {
+    type: "expense",
+    amount: 100,
+    tag: "travel",
+    name: "Quick Travel",
+    icon: "🚗",
+  },
+  {
+    type: "expense",
+    amount: 200,
+    tag: "shopping",
+    name: "Quick Shopping",
+    icon: "🛍️",
+  },
+  {
+    type: "expense",
+    amount: 500,
+    tag: "bills",
+    name: "Quick Bill",
+    icon: "💳",
+  },
+  {
+    type: "income",
+    amount: 1000,
+    tag: "freelance",
+    name: "Quick Income",
+    icon: "💰",
+  },
+];
+
+const QuickEntry = ({ onQuickAdd, templates = [], onCustomize }) => {
   const [loading, setLoading] = useState(false);
   const [lastClicked, setLastClicked] = useState(null);
 
-  const quickTransactions = [
-    {
-      type: "expense",
-      amount: 50,
-      tag: "food",
-      name: "Quick Food",
-      icon: "🍔",
-    },
-    {
-      type: "expense",
-      amount: 100,
-      tag: "travel",
-      name: "Quick Travel",
-      icon: "🚗",
-    },
-    {
-      type: "expense",
-      amount: 200,
-      tag: "shopping",
-      name: "Quick Shopping",
-      icon: "🛍️",
-    },
-    {
-      type: "expense",
-      amount: 500,
-      tag: "bills",
-      name: "Quick Bill",
-      icon: "💳",
-    },
-    {
-      type: "income",
-      amount: 1000,
-      tag: "freelance",
-      name: "Quick Income",
-      icon: "💰",
-    },
-  ];
+  // Use custom templates if available, otherwise use defaults
+  const quickTransactions = templates.length > 0 ? templates : DEFAULT_TEMPLATES;
 
   const handleQuickAdd = async (template, index) => {
     // Prevent double-clicking
@@ -79,13 +82,38 @@ const QuickEntry = ({ onQuickAdd }) => {
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-4">
-      <div className="mb-3">
-        <h3 className="text-sm font-semibold text-gray-700 mb-1">
-          Quick Entry
-        </h3>
-        <p className="text-xs text-gray-500">
-          One-tap common transactions
-        </p>
+      <div className="mb-3 flex items-center justify-between">
+        <div>
+          <h3 className="text-sm font-semibold text-gray-700 mb-1">
+            Quick Entry
+          </h3>
+          <p className="text-xs text-gray-500">
+            One-tap common transactions
+          </p>
+        </div>
+        {onCustomize && (
+          <button
+            onClick={onCustomize}
+            className="text-xs text-primary-600 hover:text-primary-700 font-medium flex items-center gap-1 px-2 py-1 rounded hover:bg-primary-50 transition-colors"
+            title="Customize quick entry buttons"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+              />
+            </svg>
+            Customize
+          </button>
+        )}
       </div>
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
         {quickTransactions.map((template, index) => {
