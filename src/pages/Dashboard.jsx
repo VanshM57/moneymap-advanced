@@ -9,6 +9,8 @@ import AddExpenseModal from "../components/Modals/AddExpense";
 import AddBudgetModal from "../components/Modals/AddBudget";
 import EditTransactionModal from "../components/Modals/EditTransaction";
 import CustomizeQuickEntry from "../components/Modals/CustomizeQuickEntry";
+import AddIOUModal from "../components/Modals/AddIOU";
+import IOU from "../components/IOU/IOU";
 import Cards from "../components/Cards/Cards";
 import NoTransactions from "./NoTransactions";
 import Timeline from "../components/Timeline/Timeline";
@@ -37,6 +39,8 @@ const Dashboard = () => {
   const [transactions, setTransactions] = useState([]);
   const [allTransactions, setAllTransactions] = useState([]);
   const [budgets, setBudgets] = useState([]);
+  const [ious, setIous] = useState([]);
+  const [isIouModalVisible, setIsIouModalVisible] = useState(false);
   const [loading, setLoading] = useState(false);
   const [dateRange, setDateRange] = useState([dayjs().subtract(29, "day"), dayjs()]);
   const [currentBalance, setCurrentBalance] = useState(0);
@@ -245,6 +249,7 @@ const Dashboard = () => {
     fetchTransactions();
     fetchBudgets();
     fetchQuickEntryTemplates();
+    fetchIOUs();
   }, [user]);
 
   const onFinish = (values, type) => {
@@ -474,6 +479,19 @@ const Dashboard = () => {
     }
   }
 
+  async function fetchIOUs() {
+    if (!user) return;
+    try {
+      const q = query(collection(db, `users/${user.uid}/ious`));
+      const querySnapshot = await getDocs(q);
+      const iousArray = querySnapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
+      // show only pending IOUs by default
+      setIous(iousArray.filter((i) => !i.status || i.status === "pending"));
+    } catch (error) {
+      console.error("Couldn't fetch IOUs", error);
+    }
+  }
+
   async function fetchQuickEntryTemplates() {
     if (!user) return;
     try {
@@ -585,6 +603,81 @@ const Dashboard = () => {
       console.error("Error adding budget:", error);
       toast.error("Couldn't add budget: " + (error.message || "Unknown error"));
       return false;
+    }
+  }
+
+  async function addIOU(iou) {
+    if (!user) {
+      toast.error("User not authenticated");
+      return false;
+    }
+
+    try {
+      const payload = {
+        person: iou.person || iou.name || "",
+        amount: parseFloat(iou.amount) || 0,
+        date: iou.date || moment().format("YYYY-MM-DD"),
+        direction: iou.direction || "give",
+        note: iou.note || "",
+        status: "pending",
+        createdAt: new Date(),
+      };
+
+      await addDoc(collection(db, `users/${user.uid}/ious`), payload);
+      toast.success("IOU added");
+      fetchIOUs();
+      return true;
+    } catch (error) {
+      console.error("Error adding IOU:", error);
+      toast.error("Couldn't add IOU");
+      return false;
+    }
+  }
+
+  async function deleteIOU(iouId) {
+    if (!user) return;
+    try {
+      await deleteDoc(doc(db, `users/${user.uid}/ious/${iouId}`));
+      toast.success("IOU removed");
+      fetchIOUs();
+    } catch (error) {
+      console.error("Couldn't remove IOU", error);
+      toast.error("Couldn't remove IOU");
+    }
+  }
+
+  // Mark IOU complete and create a corresponding transaction
+  async function completeIOU(iou) {
+    if (!user) return;
+    try {
+      // Determine transaction type: if user 'gives' money -> expense, if user 'takes' -> income
+      const txType = iou.direction === "give" ? "expense" : "income";
+      const transaction = {
+        type: txType,
+        date: iou.date || moment().format("YYYY-MM-DD"),
+        amount: parseFloat(iou.amount) || 0,
+        tag: iou.direction === "give" ? "iou-payment" : "iou-receipt",
+        name: iou.person ? `${iou.direction === "give" ? "Paid" : "Received from"} ${iou.person}` : (iou.name || "IOU transaction"),
+      };
+
+      const success = await addTransaction(transaction, false);
+      if (success) {
+        // update IOU status to completed
+        const iouRef = doc(db, `users/${user.uid}/ious/${iou.id}`);
+        try {
+          await updateDoc(iouRef, { status: "completed", completedAt: new Date() });
+        } catch (e) {
+          // if update fails, attempt to delete as fallback
+          console.warn("Couldn't update IOU status, deleting instead", e);
+          await deleteDoc(iouRef);
+        }
+        toast.success("IOU completed and transaction created");
+        fetchIOUs();
+        fetchTransactions();
+      }
+    } catch (error) {
+      console.error("Error completing IOU:", error);
+      toast.error("Couldn't complete IOU");
     }
   }
 
@@ -704,7 +797,7 @@ const Dashboard = () => {
   };
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 max-w-screen-xl mx-auto">
+    <div className="p-2 w-full mx-auto">
       <Header />
       <div className="mt-4 bg-white shadow-md rounded-lg p-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
@@ -777,6 +870,16 @@ const Dashboard = () => {
             isBudgetModalVisible={isBudgetModalVisible}
             handleBudgetCancel={handleBudgetCancel}
             onFinish={handleBudgetSubmit}
+          />
+          <AddIOUModal
+            isVisible={isIouModalVisible}
+            onCancel={() => setIsIouModalVisible(false)}
+            onFinish={(values) => {
+              // format date if moment object
+              const payload = { ...values };
+              if (values.date && values.date.format) payload.date = values.date.format("YYYY-MM-DD");
+              addIOU(payload).then(() => setIsIouModalVisible(false));
+            }}
           />
           <EditTransactionModal
             isEditModalVisible={isEditModalVisible}
@@ -859,6 +962,25 @@ const Dashboard = () => {
                 })}
               </div>
             )}
+          </div>
+
+          {/* IOU Section */}
+          <div className="shadow-md rounded-lg p-4 sm:p-6 w-full bg-white mt-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+              <div>
+                <h2 className="text-xl font-semibold">Lend / Borrow (IOU)</h2>
+                <p className="text-secondary-500 text-sm">
+                  Track amounts you need to give or take. Mark complete to convert into transactions.
+                </p>
+              </div>
+              <button
+                onClick={() => setIsIouModalVisible(true)}
+                className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors duration-300"
+              >
+                Add IOU
+              </button>
+            </div>
+            <IOU ious={ious} onComplete={completeIOU} onDelete={deleteIOU} />
           </div>
 
           {transactions.length === 0 ? (
