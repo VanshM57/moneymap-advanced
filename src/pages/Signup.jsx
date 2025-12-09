@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useAuthState } from "react-firebase-hooks/auth";
 import { auth, provider, db } from "../firebase";
 import {
   createUserWithEmailAndPassword,
@@ -9,6 +10,7 @@ import {
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import Header from "../components/Header/Header";
 import { toast } from "react-toastify";
+import Loader from "../components/Loader/Loader";
 
 const Signup = () => {
   const [name, setName] = useState("");
@@ -18,6 +20,14 @@ const Signup = () => {
   const [loading, setLoading] = useState(false);
   const [flag, setFlag] = useState(false);
   const navigate = useNavigate();
+  const [user, authLoading] = useAuthState(auth);
+
+  // Redirect to dashboard if user is already logged in
+  useEffect(() => {
+    if (user && !authLoading) {
+      navigate("/dashboard");
+    }
+  }, [user, authLoading, navigate]);
 
   const createUserDocument = async (user) => {
     setLoading(true);
