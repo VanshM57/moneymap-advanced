@@ -13,6 +13,11 @@ dist-ssr
 .env
 *.local
 
+BUGS_AND_ERRORS.md
+DEVELOPER_GUIDE.md
+PROJECT_PRESENTATION_GUIDE.md
+
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
