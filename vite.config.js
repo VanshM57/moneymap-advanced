@@ -9,4 +9,5 @@ export default defineConfig({
     middlewareMode: false,
     historyApiFallback: true,
   },
+  base: '/',
 })
