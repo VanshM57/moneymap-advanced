@@ -17,7 +17,8 @@ BUGS_AND_ERRORS.md
 DEVELOPER_GUIDE.md
 PROJECT_PRESENTATION_GUIDE.md
 
-
+firestore.rules
+FIREBASE_RULES.md
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

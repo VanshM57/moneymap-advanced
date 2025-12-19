@@ -75,6 +75,8 @@ const GroupDetails = () => {
       setExpenses(expensesArray);
 
       // Fetch member details from users collection (displayName, email)
+      // Note: Keep `displayName` and `email` `null` if they are not available in the user profile
+      // so the UI can fall back to friendly heuristics (recent expense name) and finally a short id.
       const memberInfo = {};
       for (const memberId of groupData.members || []) {
         try {
@@ -84,15 +86,15 @@ const GroupDetails = () => {
             const ud = userSnap.data();
             memberInfo[memberId] = {
               uid: memberId,
-              displayName: ud.displayName || ud.name || ud.email || memberId,
-              email: ud.email || memberId,
+              displayName: ud.displayName || ud.name || null,
+              email: ud.email || null,
             };
           } else {
-            memberInfo[memberId] = { uid: memberId, displayName: memberId.substring(0, 8), email: memberId };
+            memberInfo[memberId] = { uid: memberId, displayName: null, email: null };
           }
         } catch (err) {
           console.warn("Couldn't fetch user profile for", memberId, err);
-          memberInfo[memberId] = { uid: memberId, displayName: memberId.substring(0, 8), email: memberId };
+          memberInfo[memberId] = { uid: memberId, displayName: null, email: null };
         }
       }
       setMemberDetails(memberInfo);

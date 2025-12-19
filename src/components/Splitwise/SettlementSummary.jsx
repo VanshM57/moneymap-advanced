@@ -277,7 +277,23 @@ const SettlementSummary = ({
 
     // Direct mapping by memberId (common case)
     const md = memberDetails && memberDetails[memberId];
-    if (md) return md.displayName || md.email || shortenId(memberId);
+
+    // Prefer explicit display name
+    if (md && md.displayName) return md.displayName;
+
+    // Try to infer a friendly name from recent expenses if available
+    if (Array.isArray(expenses)) {
+      for (const exp of expenses) {
+        if (exp && exp.paidBy === memberId && exp.paidByName && typeof exp.paidByName === "string") {
+          // prefer a friendly paidByName (may be a name or an email)
+          if (exp.paidByName.includes("@")) return exp.paidByName.split("@")[0];
+          return exp.paidByName;
+        }
+      }
+    }
+
+    // If profile email exists, use its local-part only when name is not available
+    if (md && md.email && md.email.includes("@")) return md.email.split("@")[0];
 
     // memberId might be an email stored as the identifier
     if (typeof memberId === "string" && memberId.includes("@")) {
@@ -285,22 +301,11 @@ const SettlementSummary = ({
       return memberId.split("@")[0];
     }
 
-    // Try to infer an email from expenses (paidByName sometimes stores email)
-    if (Array.isArray(expenses)) {
-      for (const exp of expenses) {
-        if (exp && exp.paidBy === memberId && exp.paidByName && typeof exp.paidByName === "string") {
-          if (exp.paidByName.includes("@")) return exp.paidByName.split("@")[0];
-          // if paidByName is not email, prefer that as a friendly name
-          return exp.paidByName;
-        }
-      }
-    }
-
     // Try to find a matching profile where the stored email equals this id
     if (memberDetails) {
       for (const k of Object.keys(memberDetails)) {
         const v = memberDetails[k];
-        if (v && v.email === memberId) return v.displayName || v.email || shortenId(memberId);
+        if (v && v.email === memberId) return v.displayName || (v.email && v.email.includes("@") ? v.email.split("@")[0] : v.email) || shortenId(memberId);
       }
     }
 

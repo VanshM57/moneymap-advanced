@@ -2,19 +2,15 @@ import React from "react";
 
 const GroupMembersList = ({ members, currentUserId, memberDetails, expenses = [] }) => {
   const shortenId = (id) => {
-    if (!id) return "";
+    if (!id) return "Unknown";
     return id.length > 12 ? `${id.slice(0, 6)}...${id.slice(-4)}` : id;
   };
 
   const getDisplayName = (memberId) => {
     const md = memberDetails?.[memberId] || {};
 
+    // Prefer explicit display name
     if (md.displayName) return md.displayName;
-
-    if (md.email) {
-      const local = md.email.split("@")[0];
-      if (local) return local;
-    }
 
     // Try to infer a friendly name from recent expenses if available
     if (Array.isArray(expenses) && expenses.length) {
@@ -24,7 +20,14 @@ const GroupMembersList = ({ members, currentUserId, memberDetails, expenses = []
       if (found && found.paidByName) return found.paidByName;
     }
 
-    return shortenId(memberId);
+    // If we have an email (must contain @), show its local part — only used when no displayName or expense-derived name
+    if (md.email && md.email.includes("@")) {
+      const local = md.email.split("@")[0];
+      if (local) return local;
+    }
+
+    // As a last resort show a shortened id but labelled as unknown (so full uid isn't presented raw)
+    return shortenId(memberId) || "Unknown";
   };
 
   return (
