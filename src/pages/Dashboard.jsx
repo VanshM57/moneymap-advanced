@@ -623,8 +623,33 @@ const Dashboard = () => {
         createdAt: new Date(),
       };
 
-      await addDoc(collection(db, `users/${user.uid}/ious`), payload);
-      toast.success("IOU added");
+      // create IOU document
+      const iouRef = await addDoc(collection(db, `users/${user.uid}/ious`), payload);
+
+      // Also create a corresponding pending transaction at creation time
+      // Per requested behavior: when IOU is created, create an opposite transaction
+      // - if direction === 'give' -> create an INCOME now, and on completion an EXPENSE
+      // - if direction === 'take' -> create an EXPENSE now, and on completion an INCOME
+      const creationTxType = payload.direction === "give" ? "income" : "expense";
+      const creationTx = {
+        type: creationTxType,
+        date: payload.date,
+        amount: payload.amount,
+        tag: `iou-pending`,
+        name: payload.person ? `${creationTxType === "income" ? "Pending to" : "Pending from"} ${payload.person}` : "Pending IOU",
+      };
+
+      const txSuccess = await addTransaction(creationTx, false);
+
+      if (txSuccess) {
+        toast.success("IOU added and transaction created");
+        fetchTransactions();
+      } else {
+        // If transaction creation failed, keep the IOU but notify the user
+        console.warn('IOU added but failed to create corresponding transaction');
+        toast.error("IOU added but couldn't create transaction");
+      }
+
       fetchIOUs();
       return true;
     } catch (error) {
