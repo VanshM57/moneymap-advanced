@@ -10,13 +10,20 @@ import {
   DatePicker,
   Select,
 } from "antd";
+import {
+  PREDEFINED_INCOME_TAGS,
+  getAllIncomeTags,
+  formatTag,
+} from "../../constants/tagConstants";
 
 const AddIncomeModal = ({
   isIncomeModalVisible,
   handleIncomeCancel,
   onFinish,
+  customIncomeTags = [],
 }) => {
   const [form] = Form.useForm();
+  const allTags = getAllIncomeTags(customIncomeTags);
 
   return (
     <Modal
@@ -68,10 +75,15 @@ const AddIncomeModal = ({
           name="tag"
           rules={[{ required: true, message: "Please select a tag!" }]}
         >
-          <Select className="w-full border rounded-md px-3 py-2">
-            <Select.Option value="salary">Salary</Select.Option>
-            <Select.Option value="freelance">Freelance</Select.Option>
-            <Select.Option value="investment">Investment</Select.Option>
+          <Select
+            className="w-full border rounded-md px-3 py-2"
+            placeholder="Select or search a tag"
+          >
+            {allTags.map((tag) => (
+              <Select.Option key={tag} value={tag} className="capitalize">
+                {formatTag(tag)}
+              </Select.Option>
+            ))}
           </Select>
         </Form.Item>
 

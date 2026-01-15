@@ -8,12 +8,21 @@ import {
   Button,
 } from "antd";
 import dayjs from "dayjs";
+import {
+  PREDEFINED_INCOME_TAGS,
+  PREDEFINED_EXPENSE_TAGS,
+  getAllIncomeTags,
+  getAllExpenseTags,
+  formatTag,
+} from "../../constants/tagConstants";
 
 const EditTransactionModal = ({
   isEditModalVisible,
   handleEditCancel,
   onFinish,
   transaction,
+  customIncomeTags = [],
+  customExpenseTags = [],
 }) => {
   const [form] = Form.useForm();
 
@@ -30,26 +39,19 @@ const EditTransactionModal = ({
 
   const getTagOptions = () => {
     if (transaction?.type === "income") {
-      return (
-        <>
-          <Select.Option value="salary">Salary</Select.Option>
-          <Select.Option value="freelance">Freelance</Select.Option>
-          <Select.Option value="investment">Investment</Select.Option>
-        </>
-      );
+      const allIncomeTags = getAllIncomeTags(customIncomeTags);
+      return allIncomeTags.map((tag) => (
+        <Select.Option key={tag} value={tag} className="capitalize">
+          {formatTag(tag)}
+        </Select.Option>
+      ));
     } else {
-      return (
-        <>
-          <Select.Option value="food">Food</Select.Option>
-          <Select.Option value="education">Education</Select.Option>
-          <Select.Option value="office">Office</Select.Option>
-          <Select.Option value="travel">Travel</Select.Option>
-          <Select.Option value="shopping">Shopping</Select.Option>
-          <Select.Option value="health">Health & Fitness</Select.Option>
-          <Select.Option value="bills">Bills & Utilities</Select.Option>
-          <Select.Option value="miscellaneous">Miscellaneous</Select.Option>
-        </>
-      );
+      const allExpenseTags = getAllExpenseTags(customExpenseTags);
+      return allExpenseTags.map((tag) => (
+        <Select.Option key={tag} value={tag} className="capitalize">
+          {formatTag(tag)}
+        </Select.Option>
+      ));
     }
   };
 
@@ -112,6 +114,7 @@ const EditTransactionModal = ({
           <Select
             className="w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             dropdownStyle={{ fontWeight: 500 }}
+            placeholder="Select tag"
           >
             {getTagOptions()}
           </Select>

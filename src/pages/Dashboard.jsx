@@ -10,6 +10,7 @@ import AddBudgetModal from "../components/Modals/AddBudget";
 import EditTransactionModal from "../components/Modals/EditTransaction";
 import CustomizeQuickEntry from "../components/Modals/CustomizeQuickEntry";
 import AddIOUModal from "../components/Modals/AddIOU";
+import TagManagerModal from "../components/Modals/TagManager";
 import IOU from "../components/IOU/IOU";
 import Cards from "../components/Cards/Cards";
 import NoTransactions from "./NoTransactions";
@@ -35,12 +36,15 @@ const Dashboard = () => {
   const [isEditModalVisible, setIsEditModalVisible] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState(null);
   const [isQuickEntryCustomizeVisible, setIsQuickEntryCustomizeVisible] = useState(false);
+  const [isTagManagerVisible, setIsTagManagerVisible] = useState(false);
   const [quickEntryTemplates, setQuickEntryTemplates] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [allTransactions, setAllTransactions] = useState([]);
   const [budgets, setBudgets] = useState([]);
   const [ious, setIous] = useState([]);
   const [isIouModalVisible, setIsIouModalVisible] = useState(false);
+  const [customIncomeTags, setCustomIncomeTags] = useState([]);
+  const [customExpenseTags, setCustomExpenseTags] = useState([]);
   const [loading, setLoading] = useState(false);
   const [dateRange, setDateRange] = useState([dayjs().subtract(29, "day"), dayjs()]);
   const [currentBalance, setCurrentBalance] = useState(0);
@@ -367,6 +371,22 @@ const Dashboard = () => {
     setTransactions(filtered);
   }, [allTransactions, dateRange]);
 
+  // Fetch custom tags, transactions, budgets, and IOUs on user login/change
+  useEffect(() => {
+    if (user) {
+      setLoading(true);
+      Promise.all([
+        fetchTransactions(),
+        fetchBudgets(),
+        fetchIOUs(),
+        fetchQuickEntryTemplates(),
+        fetchCustomTags(),
+      ]).finally(() => {
+        setLoading(false);
+      });
+    }
+  }, [user]);
+
   async function addTransaction(transaction, many) {
     if (!user) {
       toast.error("User not authenticated");
@@ -532,6 +552,122 @@ const Dashboard = () => {
     } catch (error) {
       console.error("Error saving quick entry templates:", error);
       toast.error("Couldn't save templates: " + (error.message || "Unknown error"));
+      return false;
+    }
+  }
+
+  // Fetch custom tags for income and expenses
+  async function fetchCustomTags() {
+    if (!user) return;
+    try {
+      const userRef = doc(db, "users", user.uid);
+      const userDoc = await getDoc(userRef);
+      
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        setCustomIncomeTags(userData.customIncomeTags || []);
+        setCustomExpenseTags(userData.customExpenseTags || []);
+      }
+    } catch (error) {
+      console.error("Error fetching custom tags:", error);
+      toast.error("Couldn't fetch custom tags");
+    }
+  }
+
+  // Add custom income tag
+  async function addCustomIncomeTag(tag) {
+    if (!user) {
+      toast.error("User not authenticated");
+      return false;
+    }
+
+    try {
+      const normalizedTag = tag.toLowerCase();
+      const updatedTags = [...customIncomeTags, normalizedTag];
+      
+      const userRef = doc(db, "users", user.uid);
+      await updateDoc(userRef, {
+        customIncomeTags: updatedTags,
+      });
+      
+      setCustomIncomeTags(updatedTags);
+      return true;
+    } catch (error) {
+      console.error("Error adding custom income tag:", error);
+      toast.error("Couldn't add tag: " + (error.message || "Unknown error"));
+      return false;
+    }
+  }
+
+  // Add custom expense tag
+  async function addCustomExpenseTag(tag) {
+    if (!user) {
+      toast.error("User not authenticated");
+      return false;
+    }
+
+    try {
+      const normalizedTag = tag.toLowerCase();
+      const updatedTags = [...customExpenseTags, normalizedTag];
+      
+      const userRef = doc(db, "users", user.uid);
+      await updateDoc(userRef, {
+        customExpenseTags: updatedTags,
+      });
+      
+      setCustomExpenseTags(updatedTags);
+      return true;
+    } catch (error) {
+      console.error("Error adding custom expense tag:", error);
+      toast.error("Couldn't add tag: " + (error.message || "Unknown error"));
+      return false;
+    }
+  }
+
+  // Delete custom income tag
+  async function deleteCustomIncomeTag(tag) {
+    if (!user) {
+      toast.error("User not authenticated");
+      return false;
+    }
+
+    try {
+      const updatedTags = customIncomeTags.filter(t => t !== tag);
+      
+      const userRef = doc(db, "users", user.uid);
+      await updateDoc(userRef, {
+        customIncomeTags: updatedTags,
+      });
+      
+      setCustomIncomeTags(updatedTags);
+      return true;
+    } catch (error) {
+      console.error("Error deleting custom income tag:", error);
+      toast.error("Couldn't delete tag: " + (error.message || "Unknown error"));
+      return false;
+    }
+  }
+
+  // Delete custom expense tag
+  async function deleteCustomExpenseTag(tag) {
+    if (!user) {
+      toast.error("User not authenticated");
+      return false;
+    }
+
+    try {
+      const updatedTags = customExpenseTags.filter(t => t !== tag);
+      
+      const userRef = doc(db, "users", user.uid);
+      await updateDoc(userRef, {
+        customExpenseTags: updatedTags,
+      });
+      
+      setCustomExpenseTags(updatedTags);
+      return true;
+    } catch (error) {
+      console.error("Error deleting custom expense tag:", error);
+      toast.error("Couldn't delete tag: " + (error.message || "Unknown error"));
       return false;
     }
   }
@@ -871,6 +1007,17 @@ const Dashboard = () => {
             reset={() => console.log("resetting")}
           />
 
+          {/* Manage Tags Button */}
+          <div className="mt-6 flex justify-end">
+            <button
+              onClick={() => setIsTagManagerVisible(true)}
+              className="px-4 py-2 bg-purple-50 text-purple-600 rounded-lg border border-purple-200 hover:bg-purple-100 transition-colors font-medium"
+              title="Manage custom income and expense tags"
+            >
+              🏷️ Manage Tags
+            </button>
+          </div>
+
           {/* Voice Commands & Quick Entry */}
           <div className="mt-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
             <VoiceCommand onTransactionAdd={handleVoiceAdd} />
@@ -885,16 +1032,19 @@ const Dashboard = () => {
             isExpenseModalVisible={isExpenseModalVisible}
             handleExpenseCancel={handleExpenseCancel}
             onFinish={onFinish}
+            customExpenseTags={customExpenseTags}
           />
           <AddIncomeModal
             isIncomeModalVisible={isIncomeModalVisible}
             handleIncomeCancel={handleIncomeCancel}
             onFinish={onFinish}
+            customIncomeTags={customIncomeTags}
           />
           <AddBudgetModal
             isBudgetModalVisible={isBudgetModalVisible}
             handleBudgetCancel={handleBudgetCancel}
             onFinish={handleBudgetSubmit}
+            customExpenseTags={customExpenseTags}
           />
           <AddIOUModal
             isVisible={isIouModalVisible}
@@ -911,6 +1061,18 @@ const Dashboard = () => {
             handleEditCancel={handleEditCancel}
             onFinish={handleEditFinish}
             transaction={editingTransaction}
+            customIncomeTags={customIncomeTags}
+            customExpenseTags={customExpenseTags}
+          />
+          <TagManagerModal
+            isVisible={isTagManagerVisible}
+            onCancel={() => setIsTagManagerVisible(false)}
+            customIncomeTags={customIncomeTags}
+            customExpenseTags={customExpenseTags}
+            onAddIncomeTag={addCustomIncomeTag}
+            onAddExpenseTag={addCustomExpenseTag}
+            onDeleteIncomeTag={deleteCustomIncomeTag}
+            onDeleteExpenseTag={deleteCustomExpenseTag}
           />
           <CustomizeQuickEntry
             isVisible={isQuickEntryCustomizeVisible}

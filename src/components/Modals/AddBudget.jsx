@@ -1,5 +1,10 @@
 import React from "react";
 import { Modal, Form, Input, Select } from "antd";
+import {
+  PREDEFINED_EXPENSE_TAGS,
+  getAllExpenseTags,
+  formatTag,
+} from "../../constants/tagConstants";
 
 const { Option } = Select;
 
@@ -7,9 +12,11 @@ const AddBudgetModal = ({
   isBudgetModalVisible,
   handleBudgetCancel,
   onFinish,
+  customExpenseTags = [],
 }) => {
   const [form] = Form.useForm();
   const selectedPeriod = Form.useWatch("period", form);
+  const allTags = getAllExpenseTags(customExpenseTags);
 
   const closeModal = () => {
     handleBudgetCancel();
@@ -36,12 +43,18 @@ const AddBudgetModal = ({
         <Form.Item
           label={<span className="font-semibold text-gray-700">Tag</span>}
           name="tag"
-          rules={[{ required: true, message: "Please enter a spending tag." }]}
+          rules={[{ required: true, message: "Please select a spending tag." }]}
         >
-          <Input
-            placeholder="e.g. food, travel"
-            className="border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-          />
+          <Select
+            placeholder="Select a tag to budget"
+            className="border rounded-md px-3 py-2"
+          >
+            {allTags.map((tag) => (
+              <Option key={tag} value={tag} className="capitalize">
+                {formatTag(tag)}
+              </Option>
+            ))}
+          </Select>
         </Form.Item>
 
         <Form.Item

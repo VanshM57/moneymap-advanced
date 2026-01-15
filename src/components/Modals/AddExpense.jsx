@@ -10,13 +10,21 @@ import {
   DatePicker,
   Select,
 } from "antd";
+import {
+  PREDEFINED_EXPENSE_TAGS,
+  getAllExpenseTags,
+  formatTag,
+} from "../../constants/tagConstants";
 
 const AddExpenseModal = ({
   isExpenseModalVisible,
   handleExpenseCancel,
   onFinish,
+  customExpenseTags = [],
 }) => {
   const [form] = Form.useForm();
+
+  const allTags = getAllExpenseTags(customExpenseTags);
 
   return (
     <Modal
@@ -71,16 +79,13 @@ const AddExpenseModal = ({
           <Select
             className="w-full border rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
             dropdownStyle={{ fontWeight: 500 }}
+            placeholder="Select or search a tag"
           >
-            <Select.Option value="food">Food</Select.Option>
-            <Select.Option value="education">Education</Select.Option>
-            <Select.Option value="office">Office</Select.Option>
-            <Select.Option value="travel">Travel</Select.Option>
-            <Select.Option value="shopping">Shopping</Select.Option>
-            <Select.Option value="health">Health & Fitness</Select.Option>
-            <Select.Option value="bills">Bills & Utilities</Select.Option>
-            <Select.Option value="miscellaneous">Miscellaneous</Select.Option>
-            {/* Add more tags as needed */}
+            {allTags.map((tag) => (
+              <Select.Option key={tag} value={tag} className="capitalize">
+                {formatTag(tag)}
+              </Select.Option>
+            ))}
           </Select>
         </Form.Item>
 
